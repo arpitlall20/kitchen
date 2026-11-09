@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kitchen Low-Stock Log</title>
+<meta name="theme-color" content="#1f6b45">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stock Log">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="config.js"></script>
+<style>
+/* A prep-docket on stainless: sticky week bar + tabs, tickable item rows, order docket on Sunday. */
+:root{
+  --bg:#eef1f0; --panel:#ffffff; --ink:#18211d; --muted:#5d6b65; --line:#d5dcd8;
+  --leaf:#1f6b45; --leaf-soft:#dcefe3; --low:#c2410c; --low-soft:#fde6d8;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#121715; --panel:#1a211e; --ink:#e7ece9; --muted:#9aa8a1; --line:#2c3632;
+  --leaf:#5cc48c; --leaf-soft:#1d3a2b; --low:#fb8a4c; --low-soft:#3d2316; color-scheme:dark}}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+[hidden]{display:none!important}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 8px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:.01em;margin:0;line-height:1;text-transform:uppercase}
+.week{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.week b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.iconbtn{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:6px;width:30px;height:30px;font-size:16px;cursor:pointer}
+.tabs{display:flex;gap:4px}
+.tab{flex:1;border:0;background:transparent;color:var(--muted);font:600 13px var(--f-body);text-transform:uppercase;letter-spacing:.06em;padding:10px 4px;border-bottom:3px solid transparent;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--leaf)}
+.tab .n{font-family:var(--f-mono);font-size:11px;background:var(--low-soft);color:var(--low);border-radius:9px;padding:1px 6px;margin-left:4px}
+.sync{font:500 11px var(--f-mono);color:var(--muted);padding-block:0 6px}
+main{padding-block:16px 48px;display:grid;gap:16px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+.note{font-size:13px;color:var(--muted);margin:0}
+.banner{background:var(--low-soft);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:13px;margin:0}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 0 8px;text-align:center;cursor:pointer;color:var(--ink);font-family:var(--f-body)}
+.day .dn{display:block;font:700 15px var(--f-display);text-transform:uppercase;letter-spacing:.04em}
+.day .dd{display:block;font:500 11px var(--f-mono);color:var(--muted)}
+.day .dc{display:block;font:500 11px var(--f-mono);color:var(--low);min-height:15px}
+.day[aria-pressed="true"]{border-color:var(--leaf);box-shadow:inset 0 0 0 1px var(--leaf);background:var(--leaf-soft)}
+.day.future{opacity:.5}
+.cat h2{font:700 15px var(--f-display);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
+.list{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:10px 12px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row.is-low{background:var(--low-soft)}
+.tick{width:34px;height:34px;border-radius:6px;border:2px solid var(--line);background:var(--panel);cursor:pointer;display:grid;place-items:center;color:transparent;font-weight:700;font-size:17px}
+.row.is-low .tick{border-color:var(--low);background:var(--low);color:#fff}
+.nm{min-width:0}
+.nm .t{font-weight:600;overflow-wrap:anywhere}
+.nm .s{font-size:12px;color:var(--muted);display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.pip{font:500 10px var(--f-mono);text-transform:uppercase;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted)}
+.pip.on{background:var(--low);color:#fff}
+.step{display:flex;align-items:center;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel)}
+.step button{border:0;background:transparent;color:var(--ink);width:32px;height:34px;font-size:18px;cursor:pointer}
+.step button:disabled{opacity:.35;cursor:default}
+.step .q{min-width:56px;text-align:center;font:500 14px var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.step .q small{font-size:11px;color:var(--muted)}
+.step .q.dim{color:var(--muted)}
+.empty{background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:20px;text-align:center;color:var(--muted)}
+.docket{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:18px 16px;font-family:var(--f-mono);font-size:13px}
+.docket h3{font:700 22px var(--f-display);text-transform:uppercase;margin:0 0 2px;letter-spacing:.03em}
+.docket .meta{color:var(--muted);font-size:12px;margin-bottom:12px}
+.dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.dl .c{grid-column:1/-1;font:700 13px var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:10px;border-bottom:1px dashed var(--line)}
+.dl .it{overflow-wrap:anywhere}
+.dl .it small{color:var(--muted)}
+.status{display:inline-block;font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:4px;background:var(--leaf-soft);color:var(--leaf)}
+.status.open{background:var(--low-soft);color:var(--low)}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:10px 14px;font:600 14px var(--f-body);cursor:pointer}
+.btn.primary{background:var(--leaf);border-color:var(--leaf);color:var(--panel)}
+.btn.danger{color:var(--low);border-color:var(--low)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:8px}
+.card h3{margin:0;font:700 17px var(--f-display);text-transform:uppercase;letter-spacing:.05em}
+.card p{margin:0;font-size:14px;max-width:62ch}
+textarea.out{width:100%;min-height:140px;font:13px var(--f-mono);border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--bg);color:var(--ink)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20;max-width:calc(100% - 32px)}
+form.add{display:grid;grid-template-columns:2fr 1fr 1.4fr 1fr auto;gap:8px;align-items:end}
+form label{display:grid;gap:3px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);min-width:0}
+form input,form select{font:16px var(--f-body);padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);width:100%;min-width:0}
+@media (max-width:560px){form.add{grid-template-columns:1fr 1fr}form.add .wide{grid-column:1/-1}}
+.irow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
+.irow:first-child{border-top:0}
+.pin{max-width:320px;margin:40px auto;display:grid;gap:12px;text-align:center}
+.pin input{font:600 28px var(--f-mono);text-align:center;letter-spacing:.3em}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1>Low-Stock Log</h1>
+      <div class="week">
+        <button class="iconbtn" id="prevWeek" aria-label="Previous week">‹</button>
+        <span>Order week to <b id="weekLabel">—</b></span>
+        <button class="iconbtn" id="nextWeek" aria-label="Next week">›</button>
+      </div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-log" aria-selected="true">Daily check</button>
+      <button class="tab" role="tab" id="tab-order" aria-selected="false">Sunday order<span class="n" id="orderCount" hidden>0</span></button>
+      <button class="tab" role="tab" id="tab-items" aria-selected="false">Items</button>
+    </div>
+    <div class="sync" id="sync"></div>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+const API = window.KITCHEN_API_URL || "";
+const DAYS = ["mon","tue","wed","thu","fri","sat","sun"];
+const CATS = ["Veg","Fruit","Herbs","Salad","Dairy & eggs","Dry goods","Other"];
+const PIN_KEY = "kitchen-stock-pin";
+const store = { get(k){try{return localStorage.getItem(k)}catch{return null}}, set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch{}} };
+
+const state = {
+  pin: store.get(PIN_KEY), needPin:false, pinError:"",
+  loading:true, error:"", lastSync:null,
+  items:new Map(), flags:new Map(), weekDoc:null,
+  weekEnd:null, day:null, view:"log", confirmDel:null
+};
+
+/* ---------- dates (phone's local time) ---------- */
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fromIso=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const dayIdx=d=>(d.getDay()+6)%7;
+function weekEndOf(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()+(6-dayIdx(x)));return iso(x)}
+function dateFor(weekEnd,i){const x=fromIso(weekEnd);x.setDate(x.getDate()-(6-i));return x}
+const fmt=(d,o)=>d.toLocaleDateString("en-AU",o);
+const today=()=>new Date();
+state.weekEnd=weekEndOf(today());
+state.day=DAYS[dayIdx(today())];
+
+/* ---------- talking to the Google Sheet ---------- */
+let pending=0, writeChain=Promise.resolve(), loadSeq=0;
+async function call(action, body={}){
+  const res = await fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify({...body,action,pin:state.pin,week:state.weekEnd})});
+  if(!res.ok) throw new Error("http_"+res.status);
+  return res.json();
+}
+function apply(data){
+  state.items=new Map(data.items.map(i=>[i.id,i]));
+  state.flags=new Map(data.flags.map(f=>[f.itemId,f]));
+  state.weekDoc=data.week; state.lastSync=new Date(); state.error=""; state.loading=false;
+}
+async function refresh(){
+  if(!API||API.includes("PASTE_")||!state.pin||pending) return;
+  const seq=++loadSeq, week=state.weekEnd;
+  try{
+    const r=await call("load");
+    if(seq!==loadSeq||week!==state.weekEnd||pending) return;
+    if(!r.ok){ if(r.error==="bad_pin"){state.pin=null;store.set(PIN_KEY,null);state.needPin=true;state.pinError="That PIN didn't work. Ask the head chef for the current PIN."} else state.error=r.error; }
+    else apply(r);
+  }catch{ state.error="offline" }
+  state.loading=false; render();
+}
+function write(action, body){
+  pending++; render();
+  const week=state.weekEnd;
+  writeChain=writeChain.then(async()=>{
+    try{
+      const r=await call(action,body);
+      if(!r.ok) toast(r.error==="bad_pin"?"PIN changed. Enter the new PIN.":"Couldn't save: "+r.error);
+      else if(pending===1&&week===state.weekEnd) apply(r);
+    }catch{ toast("Couldn't save. Check your signal and try again."); }
+    finally{ pending--; if(!pending) refresh(); render(); }
+  });
+}
+
+/* ---------- actions (update screen first, then save) ---------- */
+const now=()=>new Date().toISOString();
+function saveFlag(id,f){
+  if(f&&f.days.length&&f.qty>0) state.flags.set(id,f); else state.flags.delete(id);
+  render();
+  write("setFlag",{itemId:id,qty:f?f.qty:0,days:f?f.days:[]});
+}
+function toggleLow(id){
+  const it=state.items.get(id), f=state.flags.get(id);
+  if(!f) return saveFlag(id,{itemId:id,qty:it.defaultQty||1,days:[state.day],updatedAt:now()});
+  const days=f.days.includes(state.day)?f.days.filter(d=>d!==state.day):[...f.days,state.day];
+  saveFlag(id,days.length?{...f,days}:null);
+}
+function changeQty(id,delta){
+  const it=state.items.get(id), f=state.flags.get(id);
+  const base=f?f.qty:(it.defaultQty||1);
+  const step=(it.unit==="kg"&&base<3)?0.5:1;
+  const qty=Math.max(0,Math.round((base+delta*step)*2)/2);
+  if(!f){ if(delta<0) return; return saveFlag(id,{itemId:id,qty,days:[state.day],updatedAt:now()}) }
+  saveFlag(id,qty>0?{...f,qty}:null);
+}
+function markOrdered(done){
+  state.weekDoc=done?{status:"ordered",orderedAt:now()}:{status:"open"}; render();
+  write("setWeek",{status:done?"ordered":"open"});
+}
+function addItem(){
+  const v=id=>document.getElementById(id).value;
+  const name=v("f-name").trim(); if(!name) return;
+  const tmp="tmp-"+Date.now();
+  state.items.set(tmp,{id:tmp,name,unit:v("f-unit").trim()||"each",category:v("f-cat"),defaultQty:Number(v("f-qty"))||1});
+  toast(`Added ${name}`); render();
+  write("addItem",{name,unit:v("f-unit").trim(),category:v("f-cat"),defaultQty:Number(v("f-qty"))||1});
+}
+function deleteItem(id){
+  state.confirmDel=null; state.items.delete(id); render();
+  write("deleteItem",{id});
+}
+
+/* ---------- order text ---------- */
+function orderLines(){
+  const rows=[...state.flags.entries()].map(([id,f])=>({id,f,it:state.items.get(id)})).filter(r=>r.it&&r.f.qty>0);
+  rows.sort((a,b)=>(CATS.indexOf(a.it.category)+99)%99-(CATS.indexOf(b.it.category)+99)%99||a.it.name.localeCompare(b.it.name));
+  return rows;
+}
+const qtyStr=n=>Number.isInteger(n)?String(n):n.toFixed(1);
+function orderText(){
+  const rows=orderLines(); const d=fromIso(state.weekEnd); d.setDate(d.getDate()+1);
+  let t=`Order for week starting ${fmt(d,{weekday:"short",day:"numeric",month:"short"})}\n\n`, cat=null;
+  rows.forEach(r=>{ if(r.it.category!==cat){cat=r.it.category;t+=`${cat}\n`} t+=`  ${qtyStr(r.f.qty)} ${r.it.unit}  ${r.it.name}\n` });
+  return t+`\n${rows.length} lines`;
+}
+const orderCsv=()=>"item,quantity,unit,category\n"+orderLines().map(r=>[r.it.name,qtyStr(r.f.qty),r.it.unit,r.it.category].map(v=>/[,"]/.test(v)?`"${v.replace(/"/g,'""')}"`:v).join(",")).join("\n");
+async function copy(text,label){
+  try{await navigator.clipboard.writeText(text);toast(`${label} copied`)}
+  catch{const ta=document.getElementById("outText");if(ta){ta.value=text;ta.hidden=false;ta.select()}toast("Select the text below and copy it")}
+}
+let tt; function toast(m){const el=document.getElementById("toast");el.textContent=m;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,2600)}
+
+/* ---------- render ---------- */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function byCategory(){
+  const g=new Map(); CATS.forEach(c=>g.set(c,[]));
+  [...state.items.entries()].sort((a,b)=>a[1].name.localeCompare(b[1].name)).forEach(([id,it])=>(g.get(it.category)||g.get("Other")).push([id,it]));
+  return [...g.entries()].filter(([,l])=>l.length);
+}
+function render(){
+  document.getElementById("weekLabel").textContent=fmt(fromIso(state.weekEnd),{weekday:"short",day:"numeric",month:"short"});
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",String(t.id==="tab-"+state.view)));
+  const n=orderLines().length, oc=document.getElementById("orderCount"); oc.textContent=n; oc.hidden=!n;
+  document.getElementById("sync").textContent = pending?"Saving…": state.error==="offline"?"Offline · changes not saved": state.lastSync?`Up to date · ${state.lastSync.toLocaleTimeString("en-AU",{hour:"numeric",minute:"2-digit"})}`:"";
+  const m=document.getElementById("main");
+  if(!API||API.includes("PASTE_")){m.innerHTML=`<p class="banner">Setup isn't finished: paste your Google Apps Script web app URL into <b>config.js</b>.</p>`;return}
+  if(state.needPin||!state.pin){m.innerHTML=`<form class="pin" id="pinForm"><h2 style="font:700 24px var(--f-display);text-transform:uppercase;margin:0">Team PIN</h2><p class="note">Enter the kitchen PIN to start logging. You only need to do this once on this phone.</p><input id="pinInput" inputmode="numeric" autocomplete="off" aria-label="Team PIN" required>${state.pinError?`<p class="banner">${esc(state.pinError)}</p>`:""}<button class="btn primary" type="submit">Open the log</button></form>`;return}
+  let h="";
+  if(state.error&&state.error!=="offline") h+=`<p class="banner">The Google Sheet returned an error: ${esc(state.error)}</p>`;
+  if(state.loading){m.innerHTML=h+`<div class="empty">Loading the stock list…</div>`;return}
+  h+= state.view==="log"?renderLog(): state.view==="order"?renderOrder():renderItems();
+  // Keep anything half-typed in the add-item form across background refreshes.
+  const keep=["f-name","f-unit","f-cat","f-qty"].map(id=>[id,document.getElementById(id)?.value]);
+  const focused=document.activeElement?.id;
+  m.innerHTML=h;
+  keep.forEach(([id,v])=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v});
+  if(focused){const el=document.getElementById(focused);if(el&&el.tagName!=="BUTTON")el.focus()}
+}
+function stepper(id,q,unit,active){
+  return `<div class="step"><button data-dq="${id}" data-d="-1" aria-label="Less" ${active?"":"disabled"}>−</button><span class="q${active?"":" dim"}">${qtyStr(q)} <small>${esc(unit)}</small></span><button data-dq="${id}" data-d="1" aria-label="More">+</button></div>`;
+}
+function renderLog(){
+  const counts=Object.fromEntries(DAYS.map(d=>[d,0])); state.flags.forEach(f=>f.days.forEach(d=>counts[d]!=null&&counts[d]++));
+  const todayIso=iso(today());
+  let h=`<div class="days" role="group" aria-label="Day of the week">`+DAYS.map((d,i)=>{const dt=dateFor(state.weekEnd,i);
+    return `<button class="day${iso(dt)>todayIso?" future":""}" data-day="${d}" aria-pressed="${state.day===d}"><span class="dn">${d}</span><span class="dd">${dt.getDate()}/${dt.getMonth()+1}</span><span class="dc">${counts[d]?counts[d]+" low":""}</span></button>`}).join("")+`</div>`;
+  h+=`<p class="note">Tick anything running low on ${fmt(dateFor(state.weekEnd,DAYS.indexOf(state.day)),{weekday:"long"})}, and set how much to order with − and +. Everything ticked this week lands on the Sunday order.</p>`;
+  if(!state.items.size) return h+`<div class="empty">No items yet. Add what you buy on the <b>Items</b> tab.</div>`;
+  byCategory().forEach(([cat,list])=>{
+    h+=`<section class="cat"><h2>${esc(cat)}</h2><div class="list">`;
+    list.forEach(([id,it])=>{const f=state.flags.get(id);const low=f&&f.days.includes(state.day);
+      h+=`<div class="row${low?" is-low":""}"><button class="tick" data-tick="${id}" aria-pressed="${!!low}" aria-label="Mark ${esc(it.name)} low">✓</button>
+      <div class="nm"><div class="t">${esc(it.name)}</div><div class="s">${f?DAYS.map(d=>`<span class="pip${f.days.includes(d)?" on":""}">${d[0]}</span>`).join(""):`usual order ${qtyStr(it.defaultQty||1)} ${esc(it.unit)}`}</div></div>
+      ${stepper(id,f?f.qty:(it.defaultQty||1),it.unit,!!f)}</div>`});
+    h+=`</div></section>`;
+  });
+  return h;
+}
+function renderOrder(){
+  const rows=orderLines(); const ordered=state.weekDoc&&state.weekDoc.status==="ordered";
+  const start=fromIso(state.weekEnd); start.setDate(start.getDate()-6);
+  let h=`<div class="docket"><div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><h3>Fruit Logistics order</h3><span class="status${ordered?"":" open"}">${ordered?"Ordered":"Not sent"}</span></div>
+  <div class="meta">Low stock logged ${fmt(start,{day:"numeric",month:"short"})} – ${fmt(fromIso(state.weekEnd),{day:"numeric",month:"short"})}${ordered&&state.weekDoc.orderedAt?` · sent ${fmt(new Date(state.weekDoc.orderedAt),{weekday:"short",day:"numeric",month:"short"})}`:""}</div>`;
+  if(!rows.length) h+=`<p>Nothing logged as low this week yet. Tick items on the Daily check tab and they'll appear here.</p>`;
+  else{ h+=`<div class="dl">`; let cat=null;
+    rows.forEach(r=>{ if(r.it.category!==cat){cat=r.it.category;h+=`<div class="c">${esc(cat)}</div>`}
+      h+=`<div class="it">${esc(r.it.name)} <small>· low ${r.f.days.length}×</small></div>${stepper(r.id,r.f.qty,r.it.unit,true)}`});
+    h+=`</div>`}
+  h+=`</div>`;
+  if(rows.length) h+=`<div class="actions"><button class="btn primary" id="copyText">Copy order</button><button class="btn" id="copyCsv">Copy as CSV</button><button class="btn" id="markOrdered">${ordered?"Reopen order":"Mark as ordered"}</button></div><textarea class="out" id="outText" hidden readonly aria-label="Order text"></textarea>`;
+  return h;
+}
+function renderItems(){
+  let h=`<div class="card"><h3>Add an item</h3><form class="add" id="addForm">
+    <label class="wide">Item<input id="f-name" required placeholder="e.g. Red capsicum"></label>
+    <label>Unit<input id="f-unit" placeholder="kg, box, bunch"></label>
+    <label>Category<select id="f-cat">${CATS.map(c=>`<option>${c}</option>`).join("")}</select></label>
+    <label>Usual qty<input id="f-qty" type="number" min="0.5" step="0.5" value="1"></label>
+    <button class="btn primary" type="submit">Add</button></form></div>`;
+  if(!state.items.size) h+=`<div class="empty">Your item list is empty. Add the produce you usually order.</div>`;
+  byCategory().forEach(([cat,list])=>{
+    h+=`<section class="cat"><h2>${esc(cat)}</h2><div class="list">`;
+    list.forEach(([id,it])=>{h+=`<div class="irow"><div class="nm"><div class="t">${esc(it.name)}</div><div class="s">${esc(it.unit)} · usual ${qtyStr(it.defaultQty||1)}</div></div>
+      ${state.confirmDel===id?`<div class="actions"><button class="btn danger" data-del="${id}">Delete</button><button class="btn" data-cancel>Keep</button></div>`:`<button class="btn" data-askdel="${id}">Remove</button>`}</div>`});
+    h+=`</div></section>`;
+  });
+  h+=`<p class="note"><button class="btn" id="forgetPin">Forget PIN on this phone</button></p>`;
+  return h;
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button"); if(!t) return;
+  if(t.classList.contains("tab")){state.view=t.id.slice(4);state.confirmDel=null;render();window.scrollTo(0,0);return}
+  if(t.dataset.day){state.day=t.dataset.day;render();return}
+  if(t.dataset.tick){toggleLow(t.dataset.tick);return}
+  if(t.dataset.dq){changeQty(t.dataset.dq,Number(t.dataset.d));return}
+  if(t.id==="copyText"){copy(orderText(),"Order");return}
+  if(t.id==="copyCsv"){copy(orderCsv(),"CSV");return}
+  if(t.id==="markOrdered"){markOrdered(!(state.weekDoc&&state.weekDoc.status==="ordered"));return}
+  if(t.dataset.askdel){state.confirmDel=t.dataset.askdel;render();return}
+  if(t.dataset.del){deleteItem(t.dataset.del);return}
+  if(t.hasAttribute("data-cancel")){state.confirmDel=null;render();return}
+  if(t.id==="forgetPin"){store.set(PIN_KEY,null);state.pin=null;state.needPin=true;state.pinError="";render();return}
+  if(t.id==="prevWeek"||t.id==="nextWeek"){
+    if(pending) return toast("Still saving, try again in a second.");
+    const d=fromIso(state.weekEnd); d.setDate(d.getDate()+(t.id==="prevWeek"?-7:7));
+    state.weekEnd=iso(d); state.day=state.weekEnd===weekEndOf(today())?DAYS[dayIdx(today())]:"mon";
+    state.flags=new Map(); state.weekDoc=null; state.loading=true; render(); refresh();
+  }
+});
+document.addEventListener("submit",e=>{
+  e.preventDefault();
+  if(e.target.id==="pinForm"){state.pin=document.getElementById("pinInput").value.trim();store.set(PIN_KEY,state.pin);state.needPin=false;state.pinError="";state.loading=true;render();refresh()}
+  if(e.target.id==="addForm"){addItem();const n=document.getElementById("f-name");n.value="";n.focus()}
+});
+// Keep everyone's phones in step: refresh every 20 s while open, and when the app comes back to the front.
+setInterval(()=>{if(document.visibilityState==="visible")refresh()},20000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){
+  const we=weekEndOf(today()); if(!pending&&state.view!=="order"&&we!==state.weekEnd&&state.weekEnd<we){state.weekEnd=we;state.day=DAYS[dayIdx(today())]}
+  refresh()}});
+
+render(); refresh();
+})();
+</script>
+</body>
+</html>
